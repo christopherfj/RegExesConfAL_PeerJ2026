@@ -1,7 +1,7 @@
 from utils import *
 
 class FREGEX(object):
-    def __init__(self, X, y, filename, verbs_opt=True, mode='automatic', 
+    def __init__(self, X, y, filename, lang='spanish', verbs_opt=True, mode='automatic', 
                  pnumbers=pnumbers, punctuation=punctuation, gap=gap, gaps=gaps, nonalpha=nonalpha, 
                  ptimes=ptimes, whitespaces=whitespaces,
                  digit_mask=digit_mask, gap_mask=gap_mask, gap_sw = gap_sw,
@@ -13,19 +13,22 @@ class FREGEX(object):
         self.all_tokens = sum(self.corpus, [])
         self.dct = Dictionary(self.corpus) 
         self.tokens = np.array( list(sorted([key for key in self.dct.token2id])) ) 
+        self.verbs = []
         if verbs_opt:
+            #if lang=='esp':
+            #https://github.com/glukhman/Learning-English-Past-Tense-RNN/blob/master/most-common-verbs-english.csv
             #https://raw.githubusercontent.com/olea/lemarios/master/verbos-espanol-conjugaciones.txt
-            self.verbs = set( pd.read_csv('verbos-espanol-conjugaciones.txt').to_numpy().reshape(-1,) )
-        else:
-            self.verbs = []
+            self.verbs = set( pd.read_csv('verbos-'+lang+'-conjugaciones.txt').to_numpy().reshape(-1,) )
+        #else:
+        #    self.verbs = []
 
-        with open( os.path.join( os.getcwd(), 'stop.txt' ), 'r', encoding='utf-8', newline='\n' ) as a:
+        with open( os.path.join( os.getcwd(), 'stop_'+lang+'.txt' ), 'r', encoding='utf-8', newline='\n' ) as a:
             self.stopwords = a.read().split('\n')[:-1]
             self.stopwords = [unicodedata.normalize('NFD', w.lower()).encode('ascii', 'ignore').decode('utf-8').strip()  for w in self.stopwords]
             self.stopwords = sorted(self.stopwords)
 
         self.NGRAM_SIZE = NGRAM_SIZE
-        stemmer = SnowballStemmer('spanish') 
+        stemmer = SnowballStemmer(lang) 
         self.tokens_filtered = []
         for token in self.tokens:
             if len(token)>=self.NGRAM_SIZE and token not in self.verbs and not re.findall(r'%s' %pnumbers, token):
@@ -160,7 +163,7 @@ class FREGEX(object):
             corpus_aux = text_aux.split(' ')
             corpus.append( corpus_aux )
         if self.mode == 'automatic':
-            print('PATH-fregex...', os.getcwd())
+            #print('PATH-fregex...', os.getcwd())
             remove(os.path.join(os.getcwd(), 'out'), 'TOKENS_'+self.FILENAME+'.txt')          
             remove(os.getcwd(), 'sw_cpp_%s' %self.FILENAME)
             remove(os.getcwd(), 'sw_cpp_%s.exe' %self.FILENAME)  
@@ -215,6 +218,7 @@ class FREGEX(object):
             tokens_aux = n_grams(corpus, N)
             tokens_aux = sorted( list( filter(None, list( set(tokens_aux) ) ) ) )            
         for token_aux in tokens_aux:
+            #print(token_aux)
             pos_aux = []
             numbers_aux = [] 
             regex = re.sub(r'\s+', r'%s'  %self.whitespaces.replace('\\', '\\\\'), token_aux)

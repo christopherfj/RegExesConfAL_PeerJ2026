@@ -26,15 +26,20 @@ class Texts(Dataset):
             text,
             add_special_tokens=True,
             max_length=self.max_len,
-            pad_to_max_length=True,
+            #pad_to_max_length=True,
+            padding='max_length',
+            truncation=True,
             return_attention_mask=True,
             return_tensors='pt'
         ) for text in texts]
 
         batch = {
             'label': torch.tensor(labels, dtype=torch.long),
-            'input_ids': torch.stack([encoding['input_ids'].flatten() for encoding in encodings]),
-            'attention_mask': torch.stack([encoding['attention_mask'].flatten() for encoding in encodings])
+            #'input_ids': torch.stack([encoding['input_ids'].flatten() for encoding in encodings]),
+            #'attention_mask': torch.stack([encoding['attention_mask'].flatten() for encoding in encodings])
+            'input_ids': torch.stack([encoding['input_ids'].squeeze(0) for encoding in encodings]),
+            'attention_mask': torch.stack([encoding['attention_mask'].squeeze(0) for encoding in encodings])
+
         }
         
         return batch
@@ -106,11 +111,13 @@ class BERT(object):
             model_bert = "distilbert-base-multilingual-cased"
         elif bert_type == 'bert':
             model_bert = "bert-base-multilingual-uncased"
+            #model_bert = "BETO_Galen"
 
         self.path_model = os.path.join(
             #os.getcwd().replace('CREGEX', 'FREGEX'), "out", model_bert
             #up( os.getcwd() ), 'FREGEX', "out", model_bert
             os.getcwd(), "out", model_bert
+            #up(up(os.getcwd())), "MODELS", model_bert
         )
         self.cased = "uncased" in self.path_model
         self.batch_size = batch_size

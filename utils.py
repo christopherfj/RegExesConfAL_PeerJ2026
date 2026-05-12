@@ -74,6 +74,9 @@ try:
     from transformers import set_seed
 except:
     pass
+import shap
+from sklearn.cluster import KMeans
+from sklearn.metrics import pairwise_distances_argmin_min
 
 SEED = 42
 F_OUTLIERS = 1.5
@@ -82,17 +85,30 @@ NGRAM_MIN = 3
 WINDOW_MIN = 5
 BATCH = 64
 #THR_PRB = 0.9 #learning curve
-THR_CLASS = 2/3
-THR_CONF = -1 #0.95 regexes
+
+THR_CLASS = 2/3 #1/2 #2/3
+
+#THR_CONF = -1 #0.95 regexes
+THR_CONF = 0.90 #-1 #0.50 #0.95
+
 THR_CONF_CLF = 0.90 #0.90 #classifiers
 
 pnumbers = r'\d+(?:[\.\,]\d+)?'
+
 punctuation = r'[^a-zA-Z\d\s\+\-]' #r'[\.\,\:\=\;\'\"\(\)\[\]\{\}]'#r'[\.\,\¡\!\¿\?\:\=\;\'\"\(\)\[\]\{\}]'
+#punctuation = r'[^a-zA-Z\d\s\+\-]?'
+
 gap = r'(?:\w)?'
 gaps =  r'(?:\w+)?'
 nonalpha =  r'[^a-zA-Z\d\s]'
 words = r'[a-zA-Z]{3,}'
+
 whitespaces = r'[\s]*'  #r'[\s%s]*' %r'\.\,' #r'[\s]*' 
+#whitespaces = r'[\W_]*'
+#whitespaces = r'[^a-zA-Z\d]*'
+#whitespaces = r'[^a-zA-Z\d]{0,5}'
+#whitespaces = r'[\s\W_]*' 
+
 gap_cmb = r'[\s\S]*'
 ptimes = r'[^\S]*'
 digit_mask = 'DIGIT'
@@ -104,9 +120,235 @@ lexicon = {
     'OBESIDAD': ['obes',
                  'peso', 'normopes', 'sobrepes',
                  'imc'],
-    'OBESIDAD_TIPOS': ['obes',
+    'OBESIDAD_TIPOS': ['obes', 'morbid', 'super'
                         'imc'],
-    }
+
+
+    'CODIESP': 
+  [
+    "acv",
+    "adenocarcinom",
+    "adenopati",
+    "adenosina",
+    "amigdalitis",
+    "analisis",
+    "anatomia",
+    "aneurism",
+    "angin",
+    "arritmi",
+    "arteri",
+    "arterial",
+    "atelectasi",
+    "auricular",
+    "biopsi",
+    "bronqui",
+    "bronquial",
+    "cancer",
+    "carcinom",
+    "cardiac",
+    "cardiovascular",
+    "celul",
+    "cerebrovascular",
+    "consolidacion",
+    "corazon",
+    "coronari",
+    "derram",
+    "diagnostic",
+    "enfisem",
+    "epoc",
+    "estenosis",
+    "fibrilacion",
+    "fibrosis",
+    "gangli",
+    "hematom",
+    "hemorragi",
+    "hidrotorax",
+    "hipertension",
+    "histologico",
+    "hta",
+    "infart",
+    "infiltrado",
+    "intersticial",
+    "isquem",
+    "leiomiosarcom",
+    "lesion",
+    "leucem",
+    "linfom",
+    "litic",
+    "malign",
+    "masa",
+    "maxilar",
+    "melanom",
+    "metastas",
+    "miocardi",
+    "nasal",
+    "necros",
+    "nefrectomi",
+    "neoplasi",
+    "neumoni",
+    "oncolog",
+    "opacidad",
+    "patologic",
+    "pleural",
+    "pulmon",
+    "pulmonar",
+    "quist",
+    "quiste",
+    "radical",
+    "reseccion",
+    "respiratori",
+    "sarcom",
+    "sinusitis",
+    "supraventricular",
+    "taquicardia",
+    "tromboembol",
+    "trombosis",
+    "tumor",
+    "vascular",
+    "vidrio"
+],
+
+'CWL': 
+
+[
+    "agudez",
+    "amenorre",
+    "angin",
+    "arterial",
+    "articulacion",
+    "bloque",
+    "cardiac",
+    "cardiomiopati",
+    "cardiopat",
+    "cefale",
+    "corazon",
+    "cronic",
+    "deficit",
+    "depres",
+    "desdent",
+    "diabet",
+    "disminu",
+    "embaraz",
+    "encefalocrane",
+    "esencial",
+    "esquizofren",
+    "hipertens",
+    "hipertiroid",
+    "hipotiroid",
+    "insuficient",
+    "intelect",
+    "lent",
+    "lipid",
+    "mellit",
+    "menstru",
+    "miocardi",
+    "nodul",
+    "obes",
+    "ocular",
+    "primari",
+    "refraccion",
+    "renal",
+    "retras",
+    "tiroid",
+    "temporomaxilar",
+    "trastorn",
+    "visual"
+],
+
+'MIMIC':
+
+[
+    # --- External causes / abuse / environment ---
+    "abuse",
+    "accident",
+    "assault",
+    "violence",
+    "maltreat",
+    "neglect",
+    "perpetrator",
+    "caregiver",
+    "altitude",
+    "environment",
+    "exposure",
+    "poison",
+
+    # --- Injury (evento real) ---
+    "fractur",
+    "wound",
+    "trauma",
+    "skull",
+
+    # --- Observation / prevention / follow-up (V-codes) ---
+    "observation",
+    "follow",
+    "aftercare",
+    "prevent",
+    "counsel",
+    "education",
+    "screen",
+
+    # --- Clinical core (disease signals) ---
+    "neoplasm",
+    "tumor",
+    "sarcom",
+    "metastas",
+    "malign",
+    "infect",
+    "hemorr",
+    "necros",
+    "ischemi",
+    "infarct",
+
+    # --- Systems ---
+    "cardio",
+    "pulmon",
+    "renal",
+    "hepatic",
+    "cerebr",
+
+    # --- General clinical ---
+    "pain",
+    "fever",
+    "shock"
+]
+
+
+}
+
+'''
+[
+    "injur",
+    "fractur",
+    "neoplasm",
+    "malign",
+    "hemorrhag",
+    "intracran",
+    "cerebr",
+    "infect",
+    "tuberculos",
+    "lymph",
+    "syndrom",
+    "congenit",
+    "obstruct",
+    "lacerat",
+    "poison",
+    "wound",
+    "skull",
+    "joint",
+    "pregnan",
+    "antepartum",
+    "postpartum",
+    "histolog",
+    "bacteriolog",
+    "episode",
+    "examin",
+    "complicat",
+    "region",
+    "upper",
+    "lower"
+]
+'''
+
 
 HYPERPARAMS = defaultdict(dict)
 HYPERPARAMS['bert']  = {
@@ -126,10 +368,12 @@ HYPERPARAMS['bert']  = {
 }
 
 HYPERPARAMS['setfit']  = {
-            'batch_size': 4, 
+            #'batch_size': 4, 
+            'batch_size': 8,
             'num_epochs': 1, 
             'learning_rate': 2e-5,
-  			'model': 'bert-base-spanish-wwm-cased-xnli'
+            'model': 'paraphrase-multilingual-MiniLM-L12-v2'
+  			#'model': 'bert-base-spanish-wwm-cased-xnli'
 }
 
 HYPERPARAMS['zsl']  = {
@@ -143,7 +387,11 @@ labels = {
     'FUMADOR': np.array(["tabaquismo ausente", "tabaquismo presente"]),
     'IMDB': np.array(["negative sentiment", "positive sentiment"]),
     'AMAZON': np.array(["negative sentiment", "positive sentiment"]),
-    'YELP': np.array(["negative sentiment", "positive sentiment"])
+    'YELP': np.array(["negative sentiment", "positive sentiment"]),
+    'CODIESP': np.array(["cardiovasculares", "neoplasias", "respiratorias"]),
+    'CARES': np.array(["neuro", "columna"]),
+    'CWL': np.array(["cardiovascular", "endocrina", "mental"]),
+    'MIMIC': np.array(["supplementary factors", "external causes"]),
 }
 
 def seed_everything(seed=SEED):
@@ -168,6 +416,7 @@ def create_paths(FILENAME, root=os.getcwd()):
         os.mkdir( os.path.join( root, 'out' ) )
     if 'RESULTS' not in os.listdir( os.path.join( root, 'out') ):
         os.mkdir( os.path.join( root, 'out', 'RESULTS' ) )
+    
     if 'Tables' not in os.listdir( os.path.join( root, 'out') ):
         os.mkdir( os.path.join( root, 'out', 'Tables' ) )
     if 'Figures' not in os.listdir( os.path.join( root, 'out') ):
@@ -188,13 +437,14 @@ def create_paths(FILENAME, root=os.getcwd()):
         os.mkdir( os.path.join( root, 'out', 'RESULTSLC', 'SSLAL' ) )
     if FILENAME not in os.listdir( os.path.join( root, 'out', 'RESULTSLC', 'SSLAL') ):
         os.mkdir( os.path.join( root, 'out', 'RESULTSLC', 'SSLAL', FILENAME ) )
+    
     shutil.copy( os.path.join( root, 'sw_cpp.cpp' ), os.path.join( os.getcwd(), 'sw_cpp_%s.cpp' %FILENAME ) )
     shutil.copy( os.path.join( root, 'sw_cpp_score.cpp' ), os.path.join( os.getcwd(), 'sw_cpp_score_%s.cpp' %FILENAME ) )
 
 def remove(path, filename):
     #if filename in os.listdir( path ):
     while filename in os.listdir( path ):
-        print(filename, 'was removed')
+        #print(filename, 'was removed')
         os.remove( os.path.join( path, filename ) )
 
 def get_thr_clustering(X, Z, metric='cosine', iterations=10,seed=SEED):
@@ -249,6 +499,7 @@ def filtering_clusters(tokens_clusters, tokens_freq):
     gc.collect()
     return bases, filters
 
+
 def match(regex, text, pos=False):
     if not pos:
         f = [ m.strip() if type(m)==str else m for m in re.findall(  r'\s%s\s' %regex,  ' '+text+' ' ) ] 
@@ -261,6 +512,7 @@ def match(regex, text, pos=False):
                 for elem in m:
                     f.add( text.index(elem.strip()) )             
     return f
+
     
 def findall(regex, pos_aux, numbers_aux, text, return_numbers=False, pnumbers=pnumbers):
     if len(numbers_aux)==0:
@@ -583,7 +835,8 @@ def get_filtered_regexes(regexes, y, kw, pattern2token, regex2class, THR_CONF=TH
             else:
                 tokenA = copy.deepcopy(token)
             for tokenB in kw:
-                if tokenB in tokenA:
+                #if tokenB in tokenA:
+                if tokenB[:3] in tokenA:
                     flag = True
                     break
             if flag:
@@ -666,6 +919,7 @@ def best_model(MODEL, ps, X_train_val, y_train_val, scoring='accuracy', SEED=SEE
 
 def select_trad_model(MODEL, HYPERPARAMS):
     seed_everything()
+    model = None
     if 'svm' in MODEL:
         model = SVC(**HYPERPARAMS)            
     elif 'nb' in MODEL:
@@ -756,11 +1010,11 @@ def SC(v):
             break
     return max_
   
+'''
 def aggregate_shap_values(original_text, bert_tokens, shap_values):
     start_idx = 0
     tokens = []
     shaps = []
-    print(original_text.split(" "), bert_tokens)
     for word in original_text.split(" "):
         token_count = len(bert_tokens)
         shap_sum = shap_values[start_idx:start_idx + token_count].sum(axis=0)
@@ -770,3 +1024,103 @@ def aggregate_shap_values(original_text, bert_tokens, shap_values):
     tokens = np.array(tokens)
     shaps = np.array(shaps)
     return shaps, tokens
+'''
+
+
+def get_sv(X, X_l_aux, X_val_aux, N_CLASSES, model,
+           tokenizer=None, k=100, NGRAM_SIZE = 1, max_evals=500, batch_size=32, SEED=42):    
+    tokens = n_grams(X, NGRAM_SIZE)
+    opt = False
+    regexes_aux = {}
+    XX = copy.deepcopy( get_matrix(tokens, X, regexes_aux, opt) )
+    km = KMeans(n_clusters=k, random_state=SEED).fit(XX)
+    idx_s, _ = pairwise_distances_argmin_min(km.cluster_centers_, XX, metric='cosine')
+    
+    if tokenizer==None:
+        max_evals = 2*X_l_aux.shape[1]+1
+        explainer = shap.Explainer(model.predict_proba, X_l_aux[idx_s],
+                                   output_names=np.arange(N_CLASSES), feature_names=tokens, seed=SEED,
+                                   max_evals=max_evals, silent=True)
+        
+        
+        shap_values = explainer(X_val_aux, batch_size=batch_size, silent=True)   
+        feature_names = copy.deepcopy(tokens) #n_texts, n_features, n_clases
+        #mean_shap_values = np.mean(np.abs(shap_values.values), axis=0) #n_features, n_clases
+        mean_shap_values = np.mean(shap_values.values, axis=0) #n_features, n_clases
+        
+        
+    else:
+        f = lambda x:model.predict_proba(x)
+        explainer = shap.Explainer(
+            f,
+            data=X_l_aux[idx_s],
+            masker=shap.maskers.Text(tokenizer),
+            output_names=np.arange(N_CLASSES),  seed=SEED,
+            fixed_context=1,  max_evals=max_evals, silent=True
+        )
+        
+        shap_values = explainer(X_val_aux, batch_size=batch_size, silent=True)   
+        
+        tok2vals = defaultdict(list)
+        for i in range(len(shap_values)):
+            v = shap_values[i]
+            vals = v.values
+            toks = v.data if v.data is not None else v.domain_mapper.indexed_string.as_list()
+            for t, val in zip(toks, vals):
+                t = t.strip()
+                #t = re.sub(pnumbers, re.escape(pnumbers), t)
+                #t = re.sub(nonalpha, re.escape(nonalpha), t)
+                tok2vals[t].append(val)
+        feature_names = np.array(list(tok2vals.keys()))
+        mean_shap_values = np.stack([np.mean(tok2vals[t], axis=0) for t in feature_names]) #n_features, n_clases
+        
+        
+        '''
+        #print(shap_values.shape)
+        
+        tokens = defaultdict(list)
+        for i in range(shap_values.shape[0]):
+            v = shap_values[i,:,:]
+            values, data = v.values, v.data
+            values, data = aggregate_shap_values(X_val_aux[i], data, values)
+            for j in range(len(data)):
+                tokens[data[j]].append( values[j] )
+        feature_names = []
+        N_TOKENS = len(tokens)
+        mean_shap_values = np.zeros((N_TOKENS, N_CLASSES))
+        tokens_aux = list(tokens.keys())
+        for i in range(len(tokens_aux)):
+            feature_names.append( tokens_aux[i] )
+            #mean_shap_values[i,:] = np.mean(np.abs(np.array(tokens[tokens_aux[i]])), axis=0)
+            mean_shap_values[i,:] = np.mean(np.array(tokens[tokens_aux[i]]), axis=0)  #n_features, n_clases
+        feature_names = np.array(feature_names)
+        del tokens
+        del tokens_aux
+        gc.collect()
+        '''
+        
+    #idxf = [i for i in range(len(feature_names))
+    #    if len(feature_names[i]) > 1 and not feature_names[i].isnumeric()]
+    #mean_shap_values = mean_shap_values[idxf,:]
+    #feature_names = feature_names[idxf]
+    
+    '''
+    top_features = np.argsort(np.sum(mean_shap_values, axis=1))[::-1]
+    
+    #print( [w for w in feature_names if 'obes' in w], list(feature_names).index('obesidad')  )
+        
+    return [feature_names[top_features], mean_shap_values[top_features]] #+to-
+    '''
+    
+    top_features = np.argsort(np.max(mean_shap_values, axis=1))[::-1]
+    #print(feature_names[top_features][:30])
+    
+    return [feature_names[top_features], mean_shap_values[top_features]] #+to-
+    
+
+    
+    
+    
+
+
+

@@ -1,4 +1,5 @@
 import os
+
 import copy
 import gc
 import pandas as pd
@@ -42,6 +43,7 @@ class SETFIT(object):
             #os.path.join( os.getcwd(), 'texts', 'models', model),
           	
           	os.path.join( os.getcwd(), 'out', model),
+            #os.path.join( up(up(os.getcwd())), 'MODELS', model),
           
             )
 
@@ -69,6 +71,7 @@ class SETFIT(object):
             head_learning_rate = self.learning_rate,
             seed = self.SEED,
             show_progress_bar=False,
+            save_strategy="no" #nuevo
         )
         args.eval_strategy = args.evaluation_strategy
 

@@ -10,8 +10,11 @@ def get_tokens(X,y,N, FILENAME):
     opt = False
     tokens = []
     if type(N)==int:
-        tokens = n_grams(X, N)                
-    elif 'regex' in N:
+        tokens = n_grams(X, N)
+    elif 'cregex' in N:
+        tokens = n_grams(X, int(N.split('*')[0][-1]))
+    elif 'fregex' in N:                
+    #elif 'regex' in N:
         mode = N.split('-')[0]
         fregex = FREGEX(X,y, FILENAME, mode)
         fregex.fit()
@@ -27,7 +30,7 @@ class Curves(object):
                 X_val, y_val,
                 X_test,
                 N_CLASSES, CURVE, MODEL,
-                BATCH, FILENAME,
+                BATCH, FILENAME, LANG,
                 HYPERPARAMS=HYPERPARAMS, SEED = SEED
                 ):
         self.X_train = copy.deepcopy(X_train)
@@ -45,17 +48,18 @@ class Curves(object):
         self.dst_cregex = []
         self.N_FEATURES = []
         self.X_u = []
+        self.LANG = LANG
 
         if 'cregex' in MODEL:
             split_aux = MODEL.split('-')
             if len(split_aux)>2: #clf-nx-cregex
                 self.NGRAM_SIZE = '-'+MODEL.split('-')[1]+'*cregex'
             else: #clf-cregex
-                self.NGRAM_SIZE = '*cregex'
+                self.NGRAM_SIZE = '*cregex' #no bow based classifiers
         elif 'fregex' in MODEL:
             self.NGRAM_SIZE = 'fregex'
         elif 'bert' not in MODEL and 'setfit' not in MODEL and 'zsl' not in MODEL:
-            self.NGRAM_SIZE = int(MODEL[-1])
+            self.NGRAM_SIZE = int(MODEL[-1]) #BoW
         elif 'bert' in MODEL:
             self.NGRAM_SIZE = 'bert'
         elif 'setfit' in MODEL:
@@ -63,7 +67,7 @@ class Curves(object):
         elif 'zsl' in MODEL:
             self.NGRAM_SIZE = 'zsl'
             
-        if 'bert' not in self.MODEL and 'setfit' not in self.MODEL and 'zsl' not in self.MODEL:
+        if 'bert' not in self.MODEL and 'setfit' not in self.MODEL and 'zsl' not in self.MODEL: #BoW bases, fregex, cregex
             self.HYPERPARAMS = self.search_hyperparams(self.X_train, self.y_train, self.X_val, self.y_val)
         else:
             self.HYPERPARAMS = copy.deepcopy(HYPERPARAMS[self.MODEL])
@@ -71,6 +75,7 @@ class Curves(object):
         #print('NGRAM_SIZE', self.NGRAM_SIZE)
 
     def search_hyperparams(self, X_l, y_l, X_val, y_val):
+        #print('xyz', self.NGRAM_SIZE, self.FILENAME)
         ps = PredefinedSplit( np.array( [0]*len(y_l)+[-1]*len(y_val) ) )
         y_l_val = copy.deepcopy( np.hstack((y_l, y_val)) )
         regexes, opt, tokens = get_tokens(X_l, y_l, self.NGRAM_SIZE, self.FILENAME)
@@ -96,8 +101,9 @@ class Curves(object):
         return X_l, y_l, X_u, y_u, [], []
 
     def model_selection(self, X_train, y_train, X_test, X_u=[], results=False, return_model=False):
+    #def model_selection(self, X_train, y_train, X_test, y_test, X_u=[], results=False, return_model=False):
         seed_everything()
-
+        model = None
         X_l_aux = copy.deepcopy( X_train )
         y_l = copy.deepcopy( y_train )
         X_test_aux = copy.deepcopy( X_test )
@@ -106,6 +112,7 @@ class Curves(object):
         if type(self.NGRAM_SIZE)!=int and 'cregex' in self.NGRAM_SIZE: #cregex
             #div
             if 'bert' not in self.MODEL and 'setfit' not in self.MODEL and 'zsl' not in self.MODEL: #bow-fregex
+                '''
                 NGRAM_SIZE = int( self.NGRAM_SIZE[2] )
                 regexes, opt, tokens = get_tokens(X_l_aux, y_l, NGRAM_SIZE, self.FILENAME)
                 self.N_FEATURES.append( len(tokens) )
@@ -113,10 +120,12 @@ class Curves(object):
                 del regexes
                 del opt
                 del tokens
+                '''
+                self.N_FEATURES.append( None )
             else:
                 self.N_FEATURES.append( 768 )
             #div
-            model = CREGEX(self.FILENAME, self.MODEL+self.NGRAM_SIZE, self.N_CLASSES, True) 
+            model = CREGEX(self.FILENAME, self.MODEL+self.NGRAM_SIZE, self.N_CLASSES, self.LANG, True) 
             model.fit(X_l_aux, y_l, self.X_val, self.y_val) 
         else:
             if 'bert' not in self.MODEL and 'setfit' not in self.MODEL and 'zsl' not in self.MODEL: #bow-fregex
@@ -130,6 +139,7 @@ class Curves(object):
                 #div
                 #self.X_u = copy.deepcopy(X_u_aux)
                 #div
+                #self.N_FEATURES.append( None )
             else:
                 #div
                 #regexes, opt, tokens = get_tokens(X_l_aux, y_l, 1, self.FILENAME)
@@ -153,7 +163,7 @@ class Curves(object):
                     
         pred_u = []
         scores_u = []
-        pred = model.predict_proba(X_test_aux)
+        pred = model.predict_proba(X_test_aux)#, y_test)
         
         if type(self.NGRAM_SIZE)!=int and 'cregex' in self.NGRAM_SIZE: #cregex
             self.dst_cregex.append( copy.deepcopy(model.distribution) )
@@ -186,7 +196,7 @@ class Curves(object):
 
         while len(X_u)>=0:
 
-            print(len(X_u))
+            #print(len(X_u))
 
             pred, pred_u, scores_u, clf = self.model_selection(X_l, y_l, self.X_test, X_u, False, True)
             x.append( len(y_l) ) 
